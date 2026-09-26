@@ -8,6 +8,22 @@ The project was built to explore practical problems in **LLM evaluation, AI qual
 
 ---
 
+## Screenshots
+
+### Evaluation Interface
+
+EvalForge provides a structured interface for reviewing prompts and model responses using configurable scoring dimensions.
+
+![EvalForge Evaluation Interface](docs/images/evalforge-evaluator.jpeg)
+
+### Analytics Dashboard
+
+Evaluation results are aggregated into model-comparison, dimension-level, and error-analysis views.
+
+![EvalForge Analytics Dashboard](docs/images/evalforge-dashboard.jpeg)
+
+---
+
 ## Features
 
 ### Human Evaluation
@@ -231,6 +247,11 @@ evalforge/
 │   ├── test_evaluator.py
 │   └── test_storage.py
 │
+├── docs/
+│   └── images/
+│       ├── evalforge-evaluator.jpeg
+│       └── evalforge-dashboard.jpeg
+│
 ├── pytest.ini
 ├── requirements.txt
 ├── .gitignore
@@ -241,36 +262,28 @@ evalforge/
 
 ## Tech Stack
 
-**Python**
-
+**Python**  
 Core application and evaluation logic.
 
-**Streamlit**
-
+**Streamlit**  
 Interactive human-evaluation interface and dashboard.
 
-**Pydantic**
-
+**Pydantic**  
 Validation and structured data models.
 
-**Pandas**
-
+**Pandas**  
 Dataset processing, analytics, and exports.
 
-**Plotly**
-
+**Plotly**  
 Interactive evaluation visualizations.
 
-**SQLite**
-
+**SQLite**  
 Persistent local evaluation storage.
 
-**PyYAML**
-
+**PyYAML**  
 Configurable evaluation rubrics.
 
-**Pytest**
-
+**Pytest**  
 Automated backend testing.
 
 ---
@@ -343,6 +356,12 @@ The current test suite covers:
 - SQLite persistence
 - Dataset isolation
 
+Current status:
+
+```text
+14 passed
+```
+
 ---
 
 ## Evaluation Workflow
@@ -402,7 +421,7 @@ The project focuses on practical concepts used in areas such as:
 Potential extensions include:
 
 - LLM-as-a-Judge evaluation
-- Human vs. automated evaluator agreement analysis
+- Human vs automated evaluator agreement analysis
 - Cohen's Kappa and inter-rater reliability metrics
 - Multiple human evaluators per response
 - Pairwise model comparison
