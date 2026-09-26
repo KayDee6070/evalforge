@@ -1,0 +1,170 @@
+[
+  {
+    "item_id": "qa-001",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 1,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 4,
+      "Clarity": 5
+    },
+    "error_tags": ["Factual Error"],
+    "overall_comment": "Sydney is not the capital of Australia; Canberra is."
+  },
+  {
+    "item_id": "qa-002",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 4,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Accurate and appropriately simplified explanation."
+  },
+  {
+    "item_id": "qa-003",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Provides exactly three concise and useful tips."
+  },
+  {
+    "item_id": "qa-004",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 1,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 4,
+      "Clarity": 4
+    },
+    "error_tags": ["Reasoning Error", "Factual Error"],
+    "overall_comment": "120 divided by 2 is 60 km/h, not 80 km/h."
+  },
+  {
+    "item_id": "qa-005",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Direct and correct."
+  },
+  {
+    "item_id": "qa-006",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Correct explanation and follows the two-sentence constraint."
+  },
+  {
+    "item_id": "qa-007",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Minimal and correct Python implementation."
+  },
+  {
+    "item_id": "qa-008",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 4,
+      "Relevance": 5,
+      "Instruction Following": 2,
+      "Completeness": 4,
+      "Clarity": 5
+    },
+    "error_tags": ["Instruction Violation"],
+    "overall_comment": "The summary contains four words instead of the requested three."
+  },
+  {
+    "item_id": "qa-009",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Correct and concise."
+  },
+  {
+    "item_id": "qa-010",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 1,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 3,
+      "Clarity": 4
+    },
+    "error_tags": ["Reasoning Error"],
+    "overall_comment": "The conclusion does not logically follow from the premises."
+  },
+  {
+    "item_id": "qa-011",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 1,
+      "Completeness": 5,
+      "Clarity": 4
+    },
+    "error_tags": ["Instruction Violation"],
+    "overall_comment": "The user requested exactly two advantages, but five were provided."
+  },
+  {
+    "item_id": "qa-012",
+    "evaluator": "Demo Evaluator",
+    "ratable": true,
+    "scores": {
+      "Correctness": 5,
+      "Relevance": 5,
+      "Instruction Following": 5,
+      "Completeness": 5,
+      "Clarity": 5
+    },
+    "error_tags": [],
+    "overall_comment": "Clear beginner-friendly explanation."
+  }
+]

@@ -9,22 +9,78 @@
   {
     "id": "qa-002",
     "prompt": "Explain photosynthesis in simple terms.",
-    "response": "Photosynthesis is the process plants use to turn light energy into chemical energy. They use sunlight, water, and carbon dioxide to make glucose, while oxygen is released as a byproduct.",
+    "response": "Photosynthesis is how plants use sunlight, water, and carbon dioxide to make glucose for energy. Oxygen is released as a byproduct.",
     "model_name": "DemoModel-A",
     "category": "science"
   },
   {
     "id": "qa-003",
-    "prompt": "Give me three tips for writing cleaner Python code. Keep the answer concise.",
-    "response": "Use meaningful variable names, keep functions small and focused, and follow a consistent style such as PEP 8.",
+    "prompt": "Give exactly three tips for writing cleaner Python code.",
+    "response": "Use meaningful variable names, keep functions focused, and follow a consistent style such as PEP 8.",
+    "model_name": "DemoModel-A",
+    "category": "instruction_following"
+  },
+  {
+    "id": "qa-004",
+    "prompt": "A train travels 120 km in 2 hours. What is its average speed?",
+    "response": "The average speed is 80 km/h because 120 divided by 2 equals 80.",
+    "model_name": "DemoModel-A",
+    "category": "reasoning"
+  },
+  {
+    "id": "qa-005",
+    "prompt": "What is the largest planet in our solar system?",
+    "response": "Jupiter is the largest planet in our solar system.",
+    "model_name": "DemoModel-B",
+    "category": "factual_qa"
+  },
+  {
+    "id": "qa-006",
+    "prompt": "Explain why the sky appears blue during the day in two sentences.",
+    "response": "Sunlight contains many colors. Blue light is scattered more strongly by Earth's atmosphere than longer wavelengths, which makes the sky appear blue.",
+    "model_name": "DemoModel-B",
+    "category": "science"
+  },
+  {
+    "id": "qa-007",
+    "prompt": "Write a Python function that returns the square of a number.",
+    "response": "def square(x):\n    return x * x",
     "model_name": "DemoModel-B",
     "category": "coding"
   },
   {
-    "id": "qa-004",
-    "prompt": "Summarize why regular backups are important in one sentence.",
-    "response": "Regular backups protect important data by allowing recovery after accidental deletion, hardware failure, corruption, or other data-loss events.",
+    "id": "qa-008",
+    "prompt": "Summarize this sentence in three words: 'Regular exercise improves cardiovascular health and overall physical fitness.'",
+    "response": "Exercise improves health significantly.",
     "model_name": "DemoModel-B",
+    "category": "summarization"
+  },
+  {
+    "id": "qa-009",
+    "prompt": "Who wrote the novel 1984?",
+    "response": "George Orwell wrote the novel 1984.",
+    "model_name": "DemoModel-C",
+    "category": "factual_qa"
+  },
+  {
+    "id": "qa-010",
+    "prompt": "If all roses are flowers and some flowers fade quickly, can we conclude that some roses fade quickly?",
+    "response": "Yes. Since roses are flowers and some flowers fade quickly, some roses must also fade quickly.",
+    "model_name": "DemoModel-C",
+    "category": "reasoning"
+  },
+  {
+    "id": "qa-011",
+    "prompt": "Give exactly two advantages of using version control.",
+    "response": "Version control tracks changes, supports collaboration, allows rollback, improves documentation, and makes experimentation safer.",
+    "model_name": "DemoModel-C",
     "category": "instruction_following"
+  },
+  {
+    "id": "qa-012",
+    "prompt": "Explain what an API is to a beginner.",
+    "response": "An API is a set of rules that lets two software systems communicate. One program can request data or actions from another without needing to know how the other program is built internally.",
+    "model_name": "DemoModel-C",
+    "category": "technical_explanation"
   }
 ]

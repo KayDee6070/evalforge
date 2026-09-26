@@ -11,7 +11,10 @@ def build_score_dataframe(
     Convert stored evaluations into one row per scored dimension.
     """
 
-    item_lookup = {item.id: item for item in benchmark_items}
+    item_lookup = {
+        item.id: item
+        for item in benchmark_items
+    }
 
     rows = []
 
@@ -19,7 +22,9 @@ def build_score_dataframe(
         if not evaluation["ratable"]:
             continue
 
-        item = item_lookup.get(evaluation["item_id"])
+        item = item_lookup.get(
+            evaluation["item_id"]
+        )
 
         for score in evaluation["scores"]:
             rows.append(
@@ -27,11 +32,19 @@ def build_score_dataframe(
                     "evaluation_id": evaluation["id"],
                     "item_id": evaluation["item_id"],
                     "evaluator": evaluation["evaluator"],
+                    "source": evaluation.get(
+                        "source",
+                        "User",
+                    ),
                     "model_name": (
-                        item.model_name if item else "Unknown"
+                        item.model_name
+                        if item
+                        else "Unknown"
                     ),
                     "category": (
-                        item.category if item else "Unknown"
+                        item.category
+                        if item
+                        else "Unknown"
                     ),
                     "dimension": score["dimension"],
                     "score": score["score"],
@@ -49,12 +62,17 @@ def build_evaluation_dataframe(
     Convert stored evaluations into one row per evaluation.
     """
 
-    item_lookup = {item.id: item for item in benchmark_items}
+    item_lookup = {
+        item.id: item
+        for item in benchmark_items
+    }
 
     rows = []
 
     for evaluation in evaluations:
-        item = item_lookup.get(evaluation["item_id"])
+        item = item_lookup.get(
+            evaluation["item_id"]
+        )
 
         scores = [
             score["score"]
@@ -62,7 +80,10 @@ def build_evaluation_dataframe(
         ]
 
         average_score = (
-            round(sum(scores) / len(scores), 2)
+            round(
+                sum(scores) / len(scores),
+                2,
+            )
             if scores
             else None
         )
@@ -72,11 +93,19 @@ def build_evaluation_dataframe(
                 "evaluation_id": evaluation["id"],
                 "item_id": evaluation["item_id"],
                 "evaluator": evaluation["evaluator"],
+                "source": evaluation.get(
+                    "source",
+                    "User",
+                ),
                 "model_name": (
-                    item.model_name if item else "Unknown"
+                    item.model_name
+                    if item
+                    else "Unknown"
                 ),
                 "category": (
-                    item.category if item else "Unknown"
+                    item.category
+                    if item
+                    else "Unknown"
                 ),
                 "ratable": evaluation["ratable"],
                 "average_score": average_score,
@@ -97,11 +126,16 @@ def build_error_tag_dataframe(
     tags = []
 
     for evaluation in evaluations:
-        tags.extend(evaluation["error_tags"])
+        tags.extend(
+            evaluation["error_tags"]
+        )
 
     if not tags:
         return pd.DataFrame(
-            columns=["error_tag", "count"]
+            columns=[
+                "error_tag",
+                "count",
+            ]
         )
 
     return (

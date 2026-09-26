@@ -13,6 +13,7 @@ from evalforge.dataset import (
     load_dataset,
     load_uploaded_dataset,
 )
+from evalforge.demo import load_demo_evaluations
 from evalforge.evaluator import (
     calculate_average_score,
     validate_evaluation,
@@ -33,10 +34,18 @@ from evalforge.storage import (
     load_evaluations,
     save_evaluation,
 )
+from evalforge.workflow import (
+    build_current_evaluation,
+    find_existing_evaluations,
+    normalize_evaluator_name,
+)
 
 
 DEFAULT_DATASET_PATH = Path("datasets/sample_benchmark.json")
 DEFAULT_RUBRIC_PATH = Path("rubrics/general_qa.yaml")
+
+DEFAULT_DATASET_SIGNATURE = "default-sample-dataset"
+DEFAULT_RUBRIC_SIGNATURE = "default-general-qa-rubric"
 
 
 # ---------------------------------------------------------
@@ -108,7 +117,7 @@ else:
         DEFAULT_DATASET_PATH
     )
 
-    dataset_signature = "default-sample-dataset"
+    dataset_signature = DEFAULT_DATASET_SIGNATURE
     dataset_name = DEFAULT_DATASET_PATH.name
 
 
@@ -148,7 +157,7 @@ else:
         DEFAULT_RUBRIC_PATH
     )
 
-    rubric_signature = "default-general-qa-rubric"
+    rubric_signature = DEFAULT_RUBRIC_SIGNATURE
     rubric_name = DEFAULT_RUBRIC_PATH.name
 
 
@@ -156,15 +165,15 @@ else:
 # Evaluation scope
 # ---------------------------------------------------------
 
-# Preserve compatibility with evaluations already created
-# using the original built-in dataset + rubric.
-if (
-    dataset_signature == "default-sample-dataset"
-    and rubric_signature == "default-general-qa-rubric"
-):
-    evaluation_scope_key = "default-sample-dataset"
+is_default_demo_configuration = (
+    dataset_signature == DEFAULT_DATASET_SIGNATURE
+    and rubric_signature == DEFAULT_RUBRIC_SIGNATURE
+)
 
-elif rubric_signature == "default-general-qa-rubric":
+if is_default_demo_configuration:
+    evaluation_scope_key = DEFAULT_DATASET_SIGNATURE
+
+elif rubric_signature == DEFAULT_RUBRIC_SIGNATURE:
     evaluation_scope_key = dataset_signature
 
 else:
@@ -204,6 +213,10 @@ if st.session_state.current_index >= len(items):
     st.session_state.current_index = 0
 
 
+if "flash_message" not in st.session_state:
+    st.session_state.flash_message = None
+
+
 # ---------------------------------------------------------
 # Header
 # ---------------------------------------------------------
@@ -214,6 +227,14 @@ st.caption(
     "A human-centered platform for evaluating and analyzing "
     "AI-generated responses."
 )
+
+
+if st.session_state.flash_message:
+    st.success(
+        st.session_state.flash_message
+    )
+
+    st.session_state.flash_message = None
 
 
 # ---------------------------------------------------------
@@ -227,7 +248,11 @@ with st.sidebar:
 
     evaluator_name = st.text_input(
         "Evaluator name",
-        value="Kuntal",
+        value="Evaluator",
+    )
+
+    evaluator_name = normalize_evaluator_name(
+        evaluator_name
     )
 
     selected_index = st.selectbox(
@@ -266,9 +291,21 @@ with st.sidebar:
     )
 
     st.metric(
-        "Saved evaluations",
+        "Your saved evaluations",
         len(stored_sidebar),
     )
+
+    st.caption(
+        "Live demo note: saved evaluations may reset when the "
+        "hosted app restarts or redeploys. Export results you "
+        "want to keep."
+    )
+
+    if is_default_demo_configuration:
+        st.caption(
+            "12 bundled demo evaluations are available "
+            "in the dashboard."
+        )
 
 
 current_item = items[
@@ -307,11 +344,38 @@ with evaluate_tab:
         ),
     )
 
+    nav_left, _, nav_right = st.columns(
+        [1, 4, 1]
+    )
+
+    with nav_left:
+        if st.button(
+            "← Previous",
+            disabled=(
+                st.session_state.current_index == 0
+            ),
+            use_container_width=True,
+        ):
+            st.session_state.current_index -= 1
+            st.rerun()
+
+    with nav_right:
+        if st.button(
+            "Next →",
+            disabled=(
+                st.session_state.current_index
+                == len(items) - 1
+            ),
+            use_container_width=True,
+        ):
+            st.session_state.current_index += 1
+            st.rerun()
+
     left, right = st.columns([1, 1])
 
 
     # -----------------------------------------------------
-    # Prompt and model response
+    # Prompt and response
     # -----------------------------------------------------
 
     with left:
@@ -365,7 +429,7 @@ with evaluate_tab:
 
 
     # -----------------------------------------------------
-    # Human evaluation
+    # Evaluation form
     # -----------------------------------------------------
 
     with right:
@@ -453,7 +517,7 @@ with evaluate_tab:
 
 
         # -------------------------------------------------
-        # Error taxonomy
+        # Error tags
         # -------------------------------------------------
 
         st.markdown("### Error Tags")
@@ -497,10 +561,7 @@ with evaluate_tab:
 
             preview = EvaluationResult(
                 item_id=current_item.id,
-                evaluator=(
-                    evaluator_name
-                    or "Anonymous"
-                ),
+                evaluator=evaluator_name,
                 ratable=True,
                 scores=scores,
                 error_tags=error_tags,
@@ -522,36 +583,88 @@ with evaluate_tab:
 
 
         # -------------------------------------------------
-        # Save evaluation
+        # Duplicate detection
         # -------------------------------------------------
 
-        if st.button(
-            "Save Evaluation",
-            type="primary",
-            use_container_width=True,
-        ):
+        current_saved_evaluations = load_evaluations(
+            dataset_key=evaluation_scope_key
+        )
 
-            evaluation = EvaluationResult(
+        duplicates = find_existing_evaluations(
+            current_saved_evaluations,
+            current_item.id,
+            evaluator_name,
+        )
+
+        allow_duplicate = False
+
+        if duplicates:
+            st.warning(
+                f"You already saved "
+                f"{len(duplicates)} evaluation"
+                f"{'s' if len(duplicates) != 1 else ''} "
+                f"for this item as "
+                f"**{evaluator_name}**."
+            )
+
+            allow_duplicate = st.checkbox(
+                "Allow another evaluation for this item",
+                key=(
+                    f"allow_duplicate_"
+                    f"{evaluation_scope_key}_"
+                    f"{current_item.id}_"
+                    f"{evaluator_name}"
+                ),
+            )
+
+
+        duplicate_blocked = (
+            bool(duplicates)
+            and not allow_duplicate
+        )
+
+
+        # -------------------------------------------------
+        # Save controls
+        # -------------------------------------------------
+
+        save_col, next_col = st.columns(2)
+
+        save_clicked = False
+        save_next_clicked = False
+
+        with save_col:
+            save_clicked = st.button(
+                "Save Evaluation",
+                type="primary",
+                use_container_width=True,
+                disabled=duplicate_blocked,
+            )
+
+        with next_col:
+            save_next_clicked = st.button(
+                "Save & Next →",
+                use_container_width=True,
+                disabled=(
+                    duplicate_blocked
+                    or (
+                        st.session_state.current_index
+                        == len(items) - 1
+                    )
+                ),
+            )
+
+
+        if save_clicked or save_next_clicked:
+
+            evaluation = build_current_evaluation(
                 item_id=current_item.id,
-                evaluator=(
-                    evaluator_name
-                    or "Anonymous"
-                ),
-                ratable=(
-                    ratable == "Yes"
-                ),
-                unratable_reason=(
-                    unratable_reason
-                ),
-                scores=(
-                    scores
-                    if ratable == "Yes"
-                    else []
-                ),
+                evaluator=evaluator_name,
+                ratable=ratable,
+                unratable_reason=unratable_reason,
+                scores=scores,
                 error_tags=error_tags,
-                overall_comment=(
-                    overall_comment or None
-                ),
+                overall_comment=overall_comment,
             )
 
             errors = validate_evaluation(
@@ -571,10 +684,21 @@ with evaluate_tab:
                     dataset_key=evaluation_scope_key,
                 )
 
-                st.success(
-                    "Evaluation saved successfully. "
-                    f"ID: {evaluation_id}"
-                )
+                if save_next_clicked:
+                    st.session_state.flash_message = (
+                        "Evaluation saved successfully "
+                        f"(ID: {evaluation_id})."
+                    )
+
+                    st.session_state.current_index += 1
+
+                    st.rerun()
+
+                else:
+                    st.success(
+                        "Evaluation saved successfully. "
+                        f"ID: {evaluation_id}"
+                    )
 
 
 # =========================================================
@@ -590,9 +714,45 @@ with dashboard_tab:
         f"• Rubric: {rubric.name}"
     )
 
-    evaluations = load_evaluations(
+    user_evaluations = load_evaluations(
         dataset_key=evaluation_scope_key
     )
+
+    for evaluation in user_evaluations:
+        evaluation["source"] = "User"
+
+
+    include_demo = False
+
+    if is_default_demo_configuration:
+        include_demo = st.toggle(
+            "Include bundled demo evaluations",
+            value=True,
+            help=(
+                "Bundled demo evaluations populate the dashboard "
+                "so model comparison and error analysis can be "
+                "explored immediately."
+            ),
+        )
+
+
+    demo_evaluations = []
+
+    if include_demo:
+        demo_evaluations = load_demo_evaluations()
+
+        st.info(
+            "This dashboard includes 12 bundled sample "
+            "evaluations for demonstration. They are labeled "
+            "as Demo and kept separate from evaluations you create."
+        )
+
+
+    evaluations = (
+        demo_evaluations
+        + user_evaluations
+    )
+
 
     evaluation_df = (
         build_evaluation_dataframe(
@@ -621,51 +781,6 @@ with dashboard_tab:
     else:
 
         # -------------------------------------------------
-        # Export results
-        # -------------------------------------------------
-
-        st.subheader("Export Results")
-
-        export_name = (
-            f"{Path(dataset_name).stem}_evaluations"
-        )
-
-        csv_export = evaluations_to_csv(
-            evaluations
-        )
-
-        json_export = evaluations_to_json(
-            evaluations
-        )
-
-        export_col1, export_col2 = st.columns(2)
-
-        with export_col1:
-            st.download_button(
-                "⬇️ Download CSV",
-                data=csv_export,
-                file_name=(
-                    f"{export_name}.csv"
-                ),
-                mime="text/csv",
-                use_container_width=True,
-            )
-
-        with export_col2:
-            st.download_button(
-                "⬇️ Download JSON",
-                data=json_export,
-                file_name=(
-                    f"{export_name}.json"
-                ),
-                mime="application/json",
-                use_container_width=True,
-            )
-
-        st.divider()
-
-
-        # -------------------------------------------------
         # Summary metrics
         # -------------------------------------------------
 
@@ -692,12 +807,11 @@ with dashboard_tab:
             .dropna()
         )
 
-        if scored_evaluations.empty:
-            overall_average = None
-        else:
-            overall_average = (
-                scored_evaluations.mean()
-            )
+        overall_average = (
+            scored_evaluations.mean()
+            if not scored_evaluations.empty
+            else None
+        )
 
         (
             metric1,
@@ -725,11 +839,26 @@ with dashboard_tab:
             "Overall Average",
             (
                 f"{overall_average:.2f}"
-                if overall_average
-                is not None
+                if overall_average is not None
                 else "—"
             ),
         )
+
+
+        if is_default_demo_configuration:
+            source_counts = (
+                evaluation_df["source"]
+                .value_counts()
+                .to_dict()
+            )
+
+            st.caption(
+                f"Demo evaluations: "
+                f"{source_counts.get('Demo', 0)} "
+                f"• User evaluations: "
+                f"{source_counts.get('User', 0)}"
+            )
+
 
         st.divider()
 
@@ -909,6 +1038,7 @@ with dashboard_tab:
                 "evaluation_id",
                 "item_id",
                 "evaluator",
+                "source",
                 "model_name",
                 "category",
                 "ratable",
@@ -921,6 +1051,7 @@ with dashboard_tab:
             "ID",
             "Item",
             "Evaluator",
+            "Source",
             "Model",
             "Category",
             "Ratable",
@@ -933,3 +1064,53 @@ with dashboard_tab:
             use_container_width=True,
             hide_index=True,
         )
+
+        st.divider()
+
+
+        # -------------------------------------------------
+        # Export results
+        # -------------------------------------------------
+
+        st.subheader("Export Results")
+
+        st.caption(
+            "Exports contain the evaluations currently "
+            "shown in the dashboard."
+        )
+
+        export_name = (
+            f"{Path(dataset_name).stem}_evaluations"
+        )
+
+        csv_export = evaluations_to_csv(
+            evaluations
+        )
+
+        json_export = evaluations_to_json(
+            evaluations
+        )
+
+        export_col1, export_col2 = st.columns(2)
+
+        with export_col1:
+            st.download_button(
+                "⬇️ Download CSV",
+                data=csv_export,
+                file_name=(
+                    f"{export_name}.csv"
+                ),
+                mime="text/csv",
+                use_container_width=True,
+            )
+
+        with export_col2:
+            st.download_button(
+                "⬇️ Download JSON",
+                data=json_export,
+                file_name=(
+                    f"{export_name}.json"
+                ),
+                mime="application/json",
+                use_container_width=True,
+            )
