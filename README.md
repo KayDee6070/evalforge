@@ -2,6 +2,8 @@
 
 **EvalForge** is a human-centered evaluation platform for systematically reviewing, scoring, and analyzing AI-generated responses.
 
+🌐 **Live Demo:** https://evalforge-9cb65yb69rzuy6pjwdkdn2.streamlit.app/
+
 It provides a reusable workflow for evaluating LLM outputs across configurable quality dimensions, identifying common failure modes, comparing model performance, and exporting structured evaluation results.
 
 The project was built to explore practical problems in **LLM evaluation, AI quality assurance, human feedback, and model benchmarking**.
