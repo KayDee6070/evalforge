@@ -17,11 +17,18 @@ from evalforge.evaluator import (
     calculate_average_score,
     validate_evaluation,
 )
+from evalforge.export import (
+    evaluations_to_csv,
+    evaluations_to_json,
+)
 from evalforge.models import (
     DimensionScore,
     EvaluationResult,
 )
-from evalforge.rubric import load_rubric
+from evalforge.rubric import (
+    load_rubric,
+    load_uploaded_rubric,
+)
 from evalforge.storage import (
     load_evaluations,
     save_evaluation,
@@ -29,7 +36,7 @@ from evalforge.storage import (
 
 
 DEFAULT_DATASET_PATH = Path("datasets/sample_benchmark.json")
-RUBRIC_PATH = Path("rubrics/general_qa.yaml")
+DEFAULT_RUBRIC_PATH = Path("rubrics/general_qa.yaml")
 
 
 # ---------------------------------------------------------
@@ -44,20 +51,13 @@ st.set_page_config(
 
 
 # ---------------------------------------------------------
-# Load rubric
-# ---------------------------------------------------------
-
-rubric = load_rubric(RUBRIC_PATH)
-
-
-# ---------------------------------------------------------
-# Dataset selection
+# Sidebar uploads
 # ---------------------------------------------------------
 
 with st.sidebar:
     st.header("Dataset")
 
-    uploaded_file = st.file_uploader(
+    uploaded_dataset = st.file_uploader(
         "Upload benchmark dataset",
         type=["json", "csv"],
         help=(
@@ -66,21 +66,36 @@ with st.sidebar:
         ),
     )
 
+    st.header("Rubric")
 
-if uploaded_file is not None:
+    uploaded_rubric = st.file_uploader(
+        "Upload evaluation rubric",
+        type=["yaml", "yml"],
+        help=(
+            "Upload a YAML rubric containing a name, "
+            "description, and scoring dimensions."
+        ),
+    )
+
+
+# ---------------------------------------------------------
+# Load dataset
+# ---------------------------------------------------------
+
+if uploaded_dataset is not None:
     try:
-        uploaded_content = uploaded_file.getvalue()
+        dataset_content = uploaded_dataset.getvalue()
 
         items = load_uploaded_dataset(
-            uploaded_file.name,
-            uploaded_content,
+            uploaded_dataset.name,
+            dataset_content,
         )
 
         dataset_signature = hashlib.sha256(
-            uploaded_content
+            dataset_content
         ).hexdigest()
 
-        dataset_name = uploaded_file.name
+        dataset_name = uploaded_dataset.name
 
     except Exception as exc:
         st.error(
@@ -89,7 +104,9 @@ if uploaded_file is not None:
         st.stop()
 
 else:
-    items = load_dataset(DEFAULT_DATASET_PATH)
+    items = load_dataset(
+        DEFAULT_DATASET_PATH
+    )
 
     dataset_signature = "default-sample-dataset"
     dataset_name = DEFAULT_DATASET_PATH.name
@@ -103,17 +120,79 @@ if not items:
 
 
 # ---------------------------------------------------------
+# Load rubric
+# ---------------------------------------------------------
+
+if uploaded_rubric is not None:
+    try:
+        rubric_content = uploaded_rubric.getvalue()
+
+        rubric = load_uploaded_rubric(
+            rubric_content
+        )
+
+        rubric_signature = hashlib.sha256(
+            rubric_content
+        ).hexdigest()
+
+        rubric_name = uploaded_rubric.name
+
+    except Exception as exc:
+        st.error(
+            f"Could not load uploaded rubric: {exc}"
+        )
+        st.stop()
+
+else:
+    rubric = load_rubric(
+        DEFAULT_RUBRIC_PATH
+    )
+
+    rubric_signature = "default-general-qa-rubric"
+    rubric_name = DEFAULT_RUBRIC_PATH.name
+
+
+# ---------------------------------------------------------
+# Evaluation scope
+# ---------------------------------------------------------
+
+# Preserve compatibility with evaluations already created
+# using the original built-in dataset + rubric.
+if (
+    dataset_signature == "default-sample-dataset"
+    and rubric_signature == "default-general-qa-rubric"
+):
+    evaluation_scope_key = "default-sample-dataset"
+
+elif rubric_signature == "default-general-qa-rubric":
+    evaluation_scope_key = dataset_signature
+
+else:
+    evaluation_scope_key = hashlib.sha256(
+        (
+            dataset_signature
+            + ":"
+            + rubric_signature
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+# ---------------------------------------------------------
 # Session state
 # ---------------------------------------------------------
 
-if "dataset_signature" not in st.session_state:
-    st.session_state.dataset_signature = dataset_signature
+if "evaluation_scope" not in st.session_state:
+    st.session_state.evaluation_scope = (
+        evaluation_scope_key
+    )
 
 if (
-    st.session_state.dataset_signature
-    != dataset_signature
+    st.session_state.evaluation_scope
+    != evaluation_scope_key
 ):
-    st.session_state.dataset_signature = dataset_signature
+    st.session_state.evaluation_scope = (
+        evaluation_scope_key
+    )
     st.session_state.current_index = 0
 
 
@@ -138,7 +217,7 @@ st.caption(
 
 
 # ---------------------------------------------------------
-# Sidebar
+# Sidebar session controls
 # ---------------------------------------------------------
 
 with st.sidebar:
@@ -166,13 +245,12 @@ with st.sidebar:
         st.rerun()
 
     stored_sidebar = load_evaluations(
-        dataset_key=dataset_signature
+        dataset_key=evaluation_scope_key
     )
 
     st.divider()
 
     st.caption("Current dataset")
-
     st.write(f"**{dataset_name}**")
 
     st.metric(
@@ -180,13 +258,16 @@ with st.sidebar:
         len(items),
     )
 
+    st.caption("Current rubric")
+    st.write(f"**{rubric.name}**")
+
+    st.caption(
+        f"{len(rubric.dimensions)} scoring dimensions"
+    )
+
     st.metric(
         "Saved evaluations",
         len(stored_sidebar),
-    )
-
-    st.caption(
-        f"Rubric: {rubric.name}"
     )
 
 
@@ -228,8 +309,9 @@ with evaluate_tab:
 
     left, right = st.columns([1, 1])
 
+
     # -----------------------------------------------------
-    # Prompt and response
+    # Prompt and model response
     # -----------------------------------------------------
 
     with left:
@@ -253,6 +335,35 @@ with evaluate_tab:
             f"{current_item.category or 'Uncategorized'}"
         )
 
+        st.divider()
+
+        with st.expander(
+            "View Evaluation Rubric"
+        ):
+            st.markdown(
+                f"### {rubric.name}"
+            )
+
+            st.write(
+                rubric.description
+            )
+
+            for dimension in rubric.dimensions:
+                st.markdown(
+                    f"**{dimension.name}**"
+                )
+
+                st.write(
+                    dimension.description
+                )
+
+                st.caption(
+                    f"Score range: "
+                    f"{dimension.min_score}–"
+                    f"{dimension.max_score}"
+                )
+
+
     # -----------------------------------------------------
     # Human evaluation
     # -----------------------------------------------------
@@ -264,7 +375,11 @@ with evaluate_tab:
             "Is this response ratable?",
             ["Yes", "No"],
             horizontal=True,
-            key=f"ratable_{dataset_signature}_{current_item.id}",
+            key=(
+                f"ratable_"
+                f"{evaluation_scope_key}_"
+                f"{current_item.id}"
+            ),
         )
 
         scores = []
@@ -280,7 +395,7 @@ with evaluate_tab:
                 ),
                 key=(
                     f"unratable_"
-                    f"{dataset_signature}_"
+                    f"{evaluation_scope_key}_"
                     f"{current_item.id}"
                 ),
             )
@@ -301,9 +416,16 @@ with evaluate_tab:
                     dimension.name,
                     min_value=dimension.min_score,
                     max_value=dimension.max_score,
-                    value=3,
+                    value=(
+                        dimension.min_score
+                        + (
+                            dimension.max_score
+                            - dimension.min_score
+                        )
+                        // 2
+                    ),
                     key=(
-                        f"{dataset_signature}_"
+                        f"{evaluation_scope_key}_"
                         f"{current_item.id}_"
                         f"{dimension.name}"
                     ),
@@ -313,7 +435,7 @@ with evaluate_tab:
                 comment = st.text_input(
                     f"{dimension.name} comment",
                     key=(
-                        f"{dataset_signature}_"
+                        f"{evaluation_scope_key}_"
                         f"{current_item.id}_"
                         f"{dimension.name}_comment"
                     ),
@@ -328,6 +450,7 @@ with evaluate_tab:
                         comment=comment or None,
                     )
                 )
+
 
         # -------------------------------------------------
         # Error taxonomy
@@ -349,7 +472,7 @@ with evaluate_tab:
             ],
             key=(
                 f"errors_"
-                f"{dataset_signature}_"
+                f"{evaluation_scope_key}_"
                 f"{current_item.id}"
             ),
             label_visibility="collapsed",
@@ -360,10 +483,11 @@ with evaluate_tab:
             placeholder="Optional overall assessment",
             key=(
                 f"overall_"
-                f"{dataset_signature}_"
+                f"{evaluation_scope_key}_"
                 f"{current_item.id}"
             ),
         )
+
 
         # -------------------------------------------------
         # Score preview
@@ -393,8 +517,9 @@ with evaluate_tab:
             if average is not None:
                 st.metric(
                     "Average Score",
-                    f"{average:.2f} / 5",
+                    f"{average:.2f}",
                 )
+
 
         # -------------------------------------------------
         # Save evaluation
@@ -443,7 +568,7 @@ with evaluate_tab:
 
                 evaluation_id = save_evaluation(
                     evaluation,
-                    dataset_key=dataset_signature,
+                    dataset_key=evaluation_scope_key,
                 )
 
                 st.success(
@@ -460,8 +585,13 @@ with dashboard_tab:
 
     st.subheader("Evaluation Analytics")
 
+    st.caption(
+        f"Dataset: {dataset_name} "
+        f"• Rubric: {rubric.name}"
+    )
+
     evaluations = load_evaluations(
-        dataset_key=dataset_signature
+        dataset_key=evaluation_scope_key
     )
 
     evaluation_df = (
@@ -480,14 +610,60 @@ with dashboard_tab:
         evaluations
     )
 
+
     if evaluation_df.empty:
 
         st.info(
             "No evaluations have been recorded "
-            "for this dataset yet."
+            "for this dataset and rubric yet."
         )
 
     else:
+
+        # -------------------------------------------------
+        # Export results
+        # -------------------------------------------------
+
+        st.subheader("Export Results")
+
+        export_name = (
+            f"{Path(dataset_name).stem}_evaluations"
+        )
+
+        csv_export = evaluations_to_csv(
+            evaluations
+        )
+
+        json_export = evaluations_to_json(
+            evaluations
+        )
+
+        export_col1, export_col2 = st.columns(2)
+
+        with export_col1:
+            st.download_button(
+                "⬇️ Download CSV",
+                data=csv_export,
+                file_name=(
+                    f"{export_name}.csv"
+                ),
+                mime="text/csv",
+                use_container_width=True,
+            )
+
+        with export_col2:
+            st.download_button(
+                "⬇️ Download JSON",
+                data=json_export,
+                file_name=(
+                    f"{export_name}.json"
+                ),
+                mime="application/json",
+                use_container_width=True,
+            )
+
+        st.divider()
+
 
         # -------------------------------------------------
         # Summary metrics
@@ -548,7 +724,7 @@ with dashboard_tab:
         metric4.metric(
             "Overall Average",
             (
-                f"{overall_average:.2f} / 5"
+                f"{overall_average:.2f}"
                 if overall_average
                 is not None
                 else "—"
@@ -556,6 +732,7 @@ with dashboard_tab:
         )
 
         st.divider()
+
 
         # -------------------------------------------------
         # Dimension scores
@@ -585,6 +762,12 @@ with dashboard_tab:
                 .round(2)
             )
 
+            maximum_score = max(
+                dimension.max_score
+                for dimension
+                in rubric.dimensions
+            )
+
             dimension_chart = px.bar(
                 dimension_scores,
                 x="dimension",
@@ -599,13 +782,17 @@ with dashboard_tab:
             )
 
             dimension_chart.update_layout(
-                yaxis_range=[0, 5],
+                yaxis_range=[
+                    0,
+                    maximum_score,
+                ],
             )
 
             st.plotly_chart(
                 dimension_chart,
                 use_container_width=True,
             )
+
 
         # -------------------------------------------------
         # Model comparison
@@ -638,6 +825,12 @@ with dashboard_tab:
                 .round(2)
             )
 
+            maximum_score = max(
+                dimension.max_score
+                for dimension
+                in rubric.dimensions
+            )
+
             model_chart = px.bar(
                 model_scores,
                 x="dimension",
@@ -655,13 +848,17 @@ with dashboard_tab:
             )
 
             model_chart.update_layout(
-                yaxis_range=[0, 5],
+                yaxis_range=[
+                    0,
+                    maximum_score,
+                ],
             )
 
             st.plotly_chart(
                 model_chart,
                 use_container_width=True,
             )
+
 
         # -------------------------------------------------
         # Error analysis
@@ -697,6 +894,7 @@ with dashboard_tab:
                 error_chart,
                 use_container_width=True,
             )
+
 
         # -------------------------------------------------
         # Evaluation history

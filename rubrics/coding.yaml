@@ -1,0 +1,48 @@
+name: Coding Response Evaluation
+description: >
+  A rubric for evaluating AI-generated programming answers,
+  with emphasis on technical correctness, instruction following,
+  clarity, and practical usefulness.
+
+dimensions:
+  - name: Technical Correctness
+    description: >
+      Measures whether the code, explanation, and technical claims
+      are accurate and likely to work as intended.
+    min_score: 1
+    max_score: 5
+
+  - name: Instruction Following
+    description: >
+      Measures whether the response follows the user's explicit
+      requirements, constraints, requested language, and output format.
+    min_score: 1
+    max_score: 5
+
+  - name: Code Quality
+    description: >
+      Measures readability, maintainability, naming, structure,
+      and adherence to reasonable programming practices.
+    min_score: 1
+    max_score: 5
+
+  - name: Completeness
+    description: >
+      Measures whether the answer provides enough code and explanation
+      to solve the requested task without important omissions.
+    min_score: 1
+    max_score: 5
+
+  - name: Explanation Quality
+    description: >
+      Measures whether the explanation is clear, concise, and useful
+      for understanding the proposed solution.
+    min_score: 1
+    max_score: 5
+
+  - name: Robustness
+    description: >
+      Measures whether the response accounts for likely edge cases,
+      errors, or implementation pitfalls when relevant.
+    min_score: 1
+    max_score: 5
