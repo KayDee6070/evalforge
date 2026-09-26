@@ -1,0 +1,30 @@
+[
+  {
+    "id": "qa-001",
+    "prompt": "What is the capital of Australia?",
+    "response": "The capital of Australia is Sydney.",
+    "model_name": "DemoModel-A",
+    "category": "factual_qa"
+  },
+  {
+    "id": "qa-002",
+    "prompt": "Explain photosynthesis in simple terms.",
+    "response": "Photosynthesis is the process plants use to turn light energy into chemical energy. They use sunlight, water, and carbon dioxide to make glucose, while oxygen is released as a byproduct.",
+    "model_name": "DemoModel-A",
+    "category": "science"
+  },
+  {
+    "id": "qa-003",
+    "prompt": "Give me three tips for writing cleaner Python code. Keep the answer concise.",
+    "response": "Use meaningful variable names, keep functions small and focused, and follow a consistent style such as PEP 8.",
+    "model_name": "DemoModel-B",
+    "category": "coding"
+  },
+  {
+    "id": "qa-004",
+    "prompt": "Summarize why regular backups are important in one sentence.",
+    "response": "Regular backups protect important data by allowing recovery after accidental deletion, hardware failure, corruption, or other data-loss events.",
+    "model_name": "DemoModel-B",
+    "category": "instruction_following"
+  }
+]

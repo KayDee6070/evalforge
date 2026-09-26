@@ -1,0 +1,40 @@
+name: General QA Evaluation
+description: >
+  A general-purpose rubric for evaluating the quality of AI-generated
+  responses to user prompts.
+
+dimensions:
+  - name: Correctness
+    description: >
+      Measures whether the response is factually accurate and free from
+      substantive errors.
+    min_score: 1
+    max_score: 5
+
+  - name: Relevance
+    description: >
+      Measures whether the response directly addresses the user's request
+      without unnecessary or unrelated information.
+    min_score: 1
+    max_score: 5
+
+  - name: Instruction Following
+    description: >
+      Measures how well the response follows explicit instructions,
+      constraints, requested format, and user intent.
+    min_score: 1
+    max_score: 5
+
+  - name: Completeness
+    description: >
+      Measures whether the response covers the important parts of the task
+      and provides enough information to satisfy the request.
+    min_score: 1
+    max_score: 5
+
+  - name: Clarity
+    description: >
+      Measures whether the response is understandable, well structured,
+      concise, and professionally written.
+    min_score: 1
+    max_score: 5
