@@ -1,0 +1,4 @@
+id,prompt,response,model_name,category
+csv-001,"What is 2 + 2?","2 + 2 equals 4.","DemoModel-A","math"
+csv-002,"Name the largest planet in our solar system.","Jupiter is the largest planet in our solar system.","DemoModel-B","science"
+csv-003,"Write exactly three words describing Python.","Readable flexible powerful","DemoModel-C","instruction_following"

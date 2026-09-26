@@ -1,37 +1,40 @@
-import json
+import hashlib
 from pathlib import Path
 
 import plotly.express as px
 import streamlit as st
 
 from evalforge.analytics import (
-    build_evaluation_dataframe,
     build_error_tag_dataframe,
+    build_evaluation_dataframe,
     build_score_dataframe,
+)
+from evalforge.dataset import (
+    load_dataset,
+    load_uploaded_dataset,
 )
 from evalforge.evaluator import (
     calculate_average_score,
     validate_evaluation,
 )
 from evalforge.models import (
-    BenchmarkItem,
     DimensionScore,
     EvaluationResult,
 )
 from evalforge.rubric import load_rubric
-from evalforge.storage import load_evaluations, save_evaluation
+from evalforge.storage import (
+    load_evaluations,
+    save_evaluation,
+)
 
 
-DATASET_PATH = Path("datasets/sample_benchmark.json")
+DEFAULT_DATASET_PATH = Path("datasets/sample_benchmark.json")
 RUBRIC_PATH = Path("rubrics/general_qa.yaml")
 
 
-def load_benchmark() -> list[BenchmarkItem]:
-    with DATASET_PATH.open("r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    return [BenchmarkItem.model_validate(item) for item in data]
-
+# ---------------------------------------------------------
+# Page setup
+# ---------------------------------------------------------
 
 st.set_page_config(
     page_title="EvalForge",
@@ -39,10 +42,86 @@ st.set_page_config(
     layout="wide",
 )
 
+
+# ---------------------------------------------------------
+# Load rubric
+# ---------------------------------------------------------
+
 rubric = load_rubric(RUBRIC_PATH)
-items = load_benchmark()
+
+
+# ---------------------------------------------------------
+# Dataset selection
+# ---------------------------------------------------------
+
+with st.sidebar:
+    st.header("Dataset")
+
+    uploaded_file = st.file_uploader(
+        "Upload benchmark dataset",
+        type=["json", "csv"],
+        help=(
+            "Required fields: id, prompt, response. "
+            "Optional fields: model_name, category."
+        ),
+    )
+
+
+if uploaded_file is not None:
+    try:
+        uploaded_content = uploaded_file.getvalue()
+
+        items = load_uploaded_dataset(
+            uploaded_file.name,
+            uploaded_content,
+        )
+
+        dataset_signature = hashlib.sha256(
+            uploaded_content
+        ).hexdigest()
+
+        dataset_name = uploaded_file.name
+
+    except Exception as exc:
+        st.error(
+            f"Could not load uploaded dataset: {exc}"
+        )
+        st.stop()
+
+else:
+    items = load_dataset(DEFAULT_DATASET_PATH)
+
+    dataset_signature = "default-sample-dataset"
+    dataset_name = DEFAULT_DATASET_PATH.name
+
+
+if not items:
+    st.error(
+        "The selected dataset contains no benchmark items."
+    )
+    st.stop()
+
+
+# ---------------------------------------------------------
+# Session state
+# ---------------------------------------------------------
+
+if "dataset_signature" not in st.session_state:
+    st.session_state.dataset_signature = dataset_signature
+
+if (
+    st.session_state.dataset_signature
+    != dataset_signature
+):
+    st.session_state.dataset_signature = dataset_signature
+    st.session_state.current_index = 0
+
 
 if "current_index" not in st.session_state:
+    st.session_state.current_index = 0
+
+
+if st.session_state.current_index >= len(items):
     st.session_state.current_index = 0
 
 
@@ -51,6 +130,7 @@ if "current_index" not in st.session_state:
 # ---------------------------------------------------------
 
 st.title("⚒️ EvalForge")
+
 st.caption(
     "A human-centered platform for evaluating and analyzing "
     "AI-generated responses."
@@ -62,6 +142,8 @@ st.caption(
 # ---------------------------------------------------------
 
 with st.sidebar:
+    st.divider()
+
     st.header("Evaluation Session")
 
     evaluator_name = st.text_input(
@@ -74,7 +156,8 @@ with st.sidebar:
         options=range(len(items)),
         index=st.session_state.current_index,
         format_func=lambda i: (
-            f"{items[i].id} — {items[i].category}"
+            f"{items[i].id} — "
+            f"{items[i].category or 'uncategorized'}"
         ),
     )
 
@@ -82,9 +165,20 @@ with st.sidebar:
         st.session_state.current_index = selected_index
         st.rerun()
 
-    stored_sidebar = load_evaluations()
+    stored_sidebar = load_evaluations(
+        dataset_key=dataset_signature
+    )
 
     st.divider()
+
+    st.caption("Current dataset")
+
+    st.write(f"**{dataset_name}**")
+
+    st.metric(
+        "Dataset items",
+        len(items),
+    )
 
     st.metric(
         "Saved evaluations",
@@ -96,7 +190,9 @@ with st.sidebar:
     )
 
 
-current_item = items[st.session_state.current_index]
+current_item = items[
+    st.session_state.current_index
+]
 
 
 # ---------------------------------------------------------
@@ -104,7 +200,10 @@ current_item = items[st.session_state.current_index]
 # ---------------------------------------------------------
 
 evaluate_tab, dashboard_tab = st.tabs(
-    ["📝 Evaluate", "📊 Dashboard"]
+    [
+        "📝 Evaluate",
+        "📊 Dashboard",
+    ]
 )
 
 
@@ -114,23 +213,49 @@ evaluate_tab, dashboard_tab = st.tabs(
 
 with evaluate_tab:
 
+    progress = (
+        st.session_state.current_index + 1
+    ) / len(items)
+
+    st.progress(
+        progress,
+        text=(
+            f"Item "
+            f"{st.session_state.current_index + 1} "
+            f"of {len(items)}"
+        ),
+    )
+
     left, right = st.columns([1, 1])
+
+    # -----------------------------------------------------
+    # Prompt and response
+    # -----------------------------------------------------
 
     with left:
         st.subheader("Prompt")
 
-        st.info(current_item.prompt)
+        st.info(
+            current_item.prompt
+        )
 
         st.subheader("Model Response")
 
         with st.container(border=True):
-            st.write(current_item.response)
+            st.write(
+                current_item.response
+            )
 
         st.caption(
-            f"Model: {current_item.model_name or 'Unknown'} "
+            f"Model: "
+            f"{current_item.model_name or 'Unknown'} "
             f"• Category: "
             f"{current_item.category or 'Uncategorized'}"
         )
+
+    # -----------------------------------------------------
+    # Human evaluation
+    # -----------------------------------------------------
 
     with right:
         st.subheader("Evaluation")
@@ -139,7 +264,7 @@ with evaluate_tab:
             "Is this response ratable?",
             ["Yes", "No"],
             horizontal=True,
-            key=f"ratable_{current_item.id}",
+            key=f"ratable_{dataset_signature}_{current_item.id}",
         )
 
         scores = []
@@ -153,7 +278,11 @@ with evaluate_tab:
                     "Explain why a reliable evaluation "
                     "cannot be made."
                 ),
-                key=f"unratable_{current_item.id}",
+                key=(
+                    f"unratable_"
+                    f"{dataset_signature}_"
+                    f"{current_item.id}"
+                ),
             )
 
         else:
@@ -174,6 +303,7 @@ with evaluate_tab:
                     max_value=dimension.max_score,
                     value=3,
                     key=(
+                        f"{dataset_signature}_"
                         f"{current_item.id}_"
                         f"{dimension.name}"
                     ),
@@ -183,6 +313,7 @@ with evaluate_tab:
                 comment = st.text_input(
                     f"{dimension.name} comment",
                     key=(
+                        f"{dataset_signature}_"
                         f"{current_item.id}_"
                         f"{dimension.name}_comment"
                     ),
@@ -198,6 +329,10 @@ with evaluate_tab:
                     )
                 )
 
+        # -------------------------------------------------
+        # Error taxonomy
+        # -------------------------------------------------
+
         st.markdown("### Error Tags")
 
         error_tags = st.multiselect(
@@ -212,22 +347,35 @@ with evaluate_tab:
                 "Formatting Issue",
                 "Unclear Writing",
             ],
-            key=f"errors_{current_item.id}",
+            key=(
+                f"errors_"
+                f"{dataset_signature}_"
+                f"{current_item.id}"
+            ),
             label_visibility="collapsed",
         )
 
         overall_comment = st.text_area(
             "Overall comment",
             placeholder="Optional overall assessment",
-            key=f"overall_{current_item.id}",
+            key=(
+                f"overall_"
+                f"{dataset_signature}_"
+                f"{current_item.id}"
+            ),
         )
+
+        # -------------------------------------------------
+        # Score preview
+        # -------------------------------------------------
 
         if ratable == "Yes":
 
             preview = EvaluationResult(
                 item_id=current_item.id,
                 evaluator=(
-                    evaluator_name or "Anonymous"
+                    evaluator_name
+                    or "Anonymous"
                 ),
                 ratable=True,
                 scores=scores,
@@ -248,6 +396,10 @@ with evaluate_tab:
                     f"{average:.2f} / 5",
                 )
 
+        # -------------------------------------------------
+        # Save evaluation
+        # -------------------------------------------------
+
         if st.button(
             "Save Evaluation",
             type="primary",
@@ -257,10 +409,15 @@ with evaluate_tab:
             evaluation = EvaluationResult(
                 item_id=current_item.id,
                 evaluator=(
-                    evaluator_name or "Anonymous"
+                    evaluator_name
+                    or "Anonymous"
                 ),
-                ratable=(ratable == "Yes"),
-                unratable_reason=unratable_reason,
+                ratable=(
+                    ratable == "Yes"
+                ),
+                unratable_reason=(
+                    unratable_reason
+                ),
                 scores=(
                     scores
                     if ratable == "Yes"
@@ -285,7 +442,8 @@ with evaluate_tab:
             else:
 
                 evaluation_id = save_evaluation(
-                    evaluation
+                    evaluation,
+                    dataset_key=dataset_signature,
                 )
 
                 st.success(
@@ -302,11 +460,15 @@ with dashboard_tab:
 
     st.subheader("Evaluation Analytics")
 
-    evaluations = load_evaluations()
+    evaluations = load_evaluations(
+        dataset_key=dataset_signature
+    )
 
-    evaluation_df = build_evaluation_dataframe(
-        evaluations,
-        items,
+    evaluation_df = (
+        build_evaluation_dataframe(
+            evaluations,
+            items,
+        )
     )
 
     score_df = build_score_dataframe(
@@ -321,23 +483,36 @@ with dashboard_tab:
     if evaluation_df.empty:
 
         st.info(
-            "No evaluations have been recorded yet."
+            "No evaluations have been recorded "
+            "for this dataset yet."
         )
 
     else:
 
-        total_evaluations = len(evaluation_df)
+        # -------------------------------------------------
+        # Summary metrics
+        # -------------------------------------------------
+
+        total_evaluations = len(
+            evaluation_df
+        )
 
         ratable_count = int(
-            evaluation_df["ratable"].sum()
+            evaluation_df[
+                "ratable"
+            ].sum()
         )
 
         model_count = int(
-            evaluation_df["model_name"].nunique()
+            evaluation_df[
+                "model_name"
+            ].nunique()
         )
 
         scored_evaluations = (
-            evaluation_df["average_score"]
+            evaluation_df[
+                "average_score"
+            ]
             .dropna()
         )
 
@@ -348,9 +523,12 @@ with dashboard_tab:
                 scored_evaluations.mean()
             )
 
-        metric1, metric2, metric3, metric4 = (
-            st.columns(4)
-        )
+        (
+            metric1,
+            metric2,
+            metric3,
+            metric4,
+        ) = st.columns(4)
 
         metric1.metric(
             "Total Evaluations",
@@ -371,16 +549,17 @@ with dashboard_tab:
             "Overall Average",
             (
                 f"{overall_average:.2f} / 5"
-                if overall_average is not None
+                if overall_average
+                is not None
                 else "—"
             ),
         )
 
         st.divider()
 
-        # ---------------------------------------------
-        # Dimension Scores
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # Dimension scores
+        # -------------------------------------------------
 
         if not score_df.empty:
 
@@ -397,8 +576,12 @@ with dashboard_tab:
                 .mean()
             )
 
-            dimension_scores["score"] = (
-                dimension_scores["score"]
+            dimension_scores[
+                "score"
+            ] = (
+                dimension_scores[
+                    "score"
+                ]
                 .round(2)
             )
 
@@ -408,8 +591,10 @@ with dashboard_tab:
                 y="score",
                 text="score",
                 labels={
-                    "dimension": "Evaluation Dimension",
-                    "score": "Average Score",
+                    "dimension":
+                        "Evaluation Dimension",
+                    "score":
+                        "Average Score",
                 },
             )
 
@@ -422,9 +607,9 @@ with dashboard_tab:
                 use_container_width=True,
             )
 
-        # ---------------------------------------------
-        # Model Comparison
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # Model comparison
+        # -------------------------------------------------
 
         if not score_df.empty:
 
@@ -444,8 +629,12 @@ with dashboard_tab:
                 .mean()
             )
 
-            model_scores["score"] = (
-                model_scores["score"]
+            model_scores[
+                "score"
+            ] = (
+                model_scores[
+                    "score"
+                ]
                 .round(2)
             )
 
@@ -456,9 +645,12 @@ with dashboard_tab:
                 color="model_name",
                 barmode="group",
                 labels={
-                    "dimension": "Dimension",
-                    "score": "Average Score",
-                    "model_name": "Model",
+                    "dimension":
+                        "Dimension",
+                    "score":
+                        "Average Score",
+                    "model_name":
+                        "Model",
                 },
             )
 
@@ -471,11 +663,13 @@ with dashboard_tab:
                 use_container_width=True,
             )
 
-        # ---------------------------------------------
-        # Error Analysis
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # Error analysis
+        # -------------------------------------------------
 
-        st.subheader("Error Analysis")
+        st.subheader(
+            "Error Analysis"
+        )
 
         if error_df.empty:
 
@@ -492,8 +686,10 @@ with dashboard_tab:
                 orientation="h",
                 text="count",
                 labels={
-                    "error_tag": "Error Type",
-                    "count": "Occurrences",
+                    "error_tag":
+                        "Error Type",
+                    "count":
+                        "Occurrences",
                 },
             )
 
@@ -502,11 +698,13 @@ with dashboard_tab:
                 use_container_width=True,
             )
 
-        # ---------------------------------------------
-        # Recent Evaluations
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # Evaluation history
+        # -------------------------------------------------
 
-        st.subheader("Evaluation History")
+        st.subheader(
+            "Evaluation History"
+        )
 
         history = evaluation_df[
             [
